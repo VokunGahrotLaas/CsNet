@@ -1,4 +1,5 @@
 using System;
+using System.Data.SqlTypes;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -8,31 +9,30 @@ using testNet.Packet;
 namespace testNet {
 	public class Client: IDisposable {
 		private bool _disposed = false;
-		private readonly int _port;
 		private readonly TcpClient _tcpClient;
-		private readonly NetworkStream _stream;
-		private Task _task;
-		private bool _isOpen = false;
-		
-		public string Address { get; }
+		private Task _run_task;
+		private Task _verify_task;
 
+		public string Address { get; }
 		public int Port { get; }
 		public NetworkStream Stream { get; }
-		public bool IsOpen { get; }
-		public bool DataAvailable => _stream.DataAvailable;
+		public bool IsOpen { get; private set; } = false;
+		public bool IsDataAvailable => Stream.DataAvailable;
+		public int DataAvailable => _tcpClient.Available;
+		public bool Connected => _tcpClient.Connected;
 
 		public Client(string address, int port) {
 			Address = address;
-			_port = port;
+			Port = port;
 			_tcpClient = new TcpClient(address, port);
-			_stream = _tcpClient.GetStream();
+			Stream = _tcpClient.GetStream();
 		}
-		
+
 		public Client(TcpClient tcpClient) {
 			Address = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address.ToString();
-			_port = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Port;
+			Port = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Port;
 			_tcpClient = tcpClient;
-			_stream = _tcpClient.GetStream();
+			Stream = _tcpClient.GetStream();
 		}
 
 		~Client() => Dispose(false);
@@ -44,67 +44,81 @@ namespace testNet {
 		
 		protected virtual void Dispose(bool disposing) {
 			if (_disposed) return;
-			if (_isOpen)
+			if (IsOpen)
 				Close();
 			if (disposing) {
+				_run_task.Dispose();
+				_verify_task.Dispose();
 				_tcpClient.Dispose();
-				_stream.Dispose();
+				Stream.Dispose();
 			}
 			_disposed = true;
 		}
 
 		public void Start() {
-			if (_isOpen) return;
-			_isOpen = true;
+			if (IsOpen) return;
+			IsOpen = true;
 			OnStart();
-			_task = Run();
+			_run_task = Run();
+			_verify_task = Verify();
 		}
 
 		public void Close() {
-			if (!_isOpen) return;
-			_isOpen = false;
-			_task.Wait();
+			if (!IsOpen) return;
+			IsOpen = false;
+			_run_task.Wait();
+			_verify_task.Wait();
 			OnClose();
 			_tcpClient.Close();
 		}
 
-		public void CloseForce() {
-			if (!_isOpen) return;
-			_isOpen = false;
-			_task.Dispose();
-			_tcpClient.Close();
+		private async Task Verify() {
+			while (IsOpen) {
+				if (!Connected)
+					Disconnect();
+				else if (IsDataAvailable)
+					OnReceive();
+				await Task.Delay(1);
+			}
 		}
 
-		protected virtual void OnStart() {
-			//
-		}
-		
-		protected virtual async Task Run() {
-			//
-		}
-
-		protected virtual void OnClose() {
-			//
+		private void Disconnect() {
+			OnDisconnect();
+			Close();
 		}
 
 		public void Send(APacket packet) {
-			packet.Send(_stream);
+			packet.Send(Stream);
 		}
 
 		public async Task SendAsync(APacket packet) {
-			await packet.SendAsync(_stream);
+			await packet.SendAsync(Stream);
+		}
+
+		public void Receive(APacket packet) {
+			packet.Receive(Stream);
 		}
 
 		public SubPacket Receive<SubPacket>() where SubPacket: APacket, new() {
 			SubPacket packet = new SubPacket();
-			packet.Receive(_stream);
+			Receive(packet);
 			return packet;
+		}
+
+		public async Task ReceiveAsync(APacket packet) {
+			await packet.ReceiveAsync(Stream);
 		}
 
 		public async Task<SubPacket> ReceiveAsync<SubPacket>() where SubPacket: APacket, new() {
 			SubPacket packet = new SubPacket();
-			await packet.ReceiveAsync(_stream);
+			await ReceiveAsync(packet);
 			return packet;
 		}
+
+		protected virtual void OnStart() { }
+		protected virtual async Task Run() { }
+		protected virtual void OnClose() { }
+		protected virtual void OnDisconnect() { }
+		protected virtual void OnReceive() { }
 	}
 }

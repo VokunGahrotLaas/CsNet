@@ -1,89 +1,116 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-
-using testNet.Packet.Packets;
-using testNet.Packet.PacketType;
-
+using testNet.Packet;
+using ClientSet = System.Collections.Generic.HashSet<testNet.Server.ServerClient>;
 
 namespace testNet {
-	public class Server: IDisposable {
-		private bool _disposed = false;
-		private readonly int _port;
-		private readonly TcpListener _tcpListener;
-		private Task _task;
-		private bool _isOpen = false;
+	public class Server {
+		public class ServerClient : Client {
+			public Server Server { get; }
+			public ServerClient(Server server, string address, int port) : base(address, port) { Server = server; }
+			public ServerClient(Server server, TcpClient tcpClient) : base(tcpClient) { Server = server; }
+			
+			protected override void OnDisconnect() => Server.RemoveClient(this);
+			protected override void OnReceive() => Server.OnReceive(this);
+		}
 
-		public int Port { get;  }
-		public bool IsOpen { get; }
+		private bool _disposed = false;
+		protected readonly TcpListener _tcpListener;
+		private Task _listen_task;
+		private Task _run_task;
+		private ClientSet _clients = new ClientSet();
+
+		public int Port { get; }
+		public bool IsOpen { get; private set; } = false;
+		public ClientSet.Enumerator Clients => _clients.GetEnumerator();
 
 		public Server(int port) {
-			_port = port;
+			Port = port;
 			_tcpListener = new TcpListener(IPAddress.Any, port);
 			_tcpListener.Start();
 		}
 
 		~Server() => Dispose(false);
-		
+
 		public void Dispose() {
 			Dispose(true);
 		}
-		
+
 		protected virtual void Dispose(bool disposing) {
 			if (_disposed) return;
-			if (_isOpen)
+			if (IsOpen)
 				Close();
-			if (disposing) { }
-			_disposed = true;
+			if (disposing) {
+				_listen_task.Dispose();
+				_run_task.Dispose();
+			}
 		}
 
 		public void Start() {
-			if (_isOpen) return;
-			_isOpen = true;
+			if (IsOpen) return;
+			IsOpen = true;
 			OnStart();
-			_task = Run();
+			_listen_task = Listen();
+			_run_task = Run();
 		}
 
 		public void Close() {
-			if (!_isOpen) return;
-			_isOpen = false;
-			_task.Wait();
+			if (!IsOpen) return;
+			IsOpen = false;
+			_listen_task.Wait();
+			_run_task.Wait();
+			ServerClient[] copy_clients = new ServerClient[_clients.Count];
+			_clients.CopyTo(copy_clients);
+			foreach (ServerClient client in copy_clients)
+				RemoveClient(client);
 			OnClose();
 			_tcpListener.Stop();
 		}
 
-		public void CloseForce() {
-			if (!_isOpen) return;
-			_isOpen = false;
-			_task.Dispose();
-			_tcpListener.Stop();
-		}
-
-		protected virtual void OnStart() {
-			//
-		}
-		
-		protected virtual async Task Run() {
-			while (_isOpen) {
-				Client client = new Client(await _tcpListener.AcceptTcpClientAsync());
-				client.Start();
-				Console.WriteLine($"Server Accepted Connection: {client.Address} {client.Port}");
-				while (!client.DataAvailable) { await Task.Delay(1); }
-				Packets packet = client.Receive<Packets>();
-				
-				PacketString packetString2 = packet.Get<PacketString>();
-				packetString2.Read(out string message2);
-				
-				PacketString packetString1= packet.Get<PacketString>();
-				packetString1.Read(out string message1);
-				
-				Console.WriteLine($"Server Received: '{message1}' & '{message2}'");
+		private async Task Listen() {
+			while (IsOpen) {
+				ServerClient client = new ServerClient(this, await _tcpListener.AcceptTcpClientAsync());
+				ConnectClient(client);
+				await Task.Delay(1);
 			}
 		}
 
-		protected virtual void OnClose() {
-			//
+		private void ConnectClient(ServerClient client) {
+			if (AcceptClient(client)) AddClient(client);
 		}
+
+		private void AddClient(ServerClient client) {
+			client.Start();
+			OnAddClient(client);
+			_clients.Add(client);
+		}
+
+		private void RemoveClient(ServerClient client) {
+			if (!_clients.Contains(client)) return;
+			client.Close();
+			OnRemoveClient(client);
+			_clients.Remove(client);
+		}
+
+		public void SendAll(APacket packet) {
+			foreach (ServerClient client in _clients)
+				client.Send(packet);
+		}
+
+		public async Task SendAllAsync(APacket packet) {
+			foreach (ServerClient client in _clients)
+				await client.SendAsync(packet);
+		}
+
+		protected virtual void OnStart() { }
+		protected virtual async Task Run() { }
+		protected virtual void OnClose() { }
+		protected virtual bool AcceptClient(ServerClient client) => true;
+		protected virtual void OnAddClient(ServerClient client) { }
+		protected virtual void OnRemoveClient(ServerClient client) { }
+		protected virtual void OnReceive(ServerClient client) { }
 	}
 }
