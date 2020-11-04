@@ -1,12 +1,12 @@
-using System;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using testNet.Packet;
-using ClientSet = System.Collections.Generic.HashSet<testNet.Server.ServerClient>;
 
-namespace testNet {
+using CsNet.Packet;
+
+using ClientSet = System.Collections.Generic.HashSet<CsNet.Server.ServerClient>;
+
+namespace CsNet {
 	public class Server {
 		public class ServerClient : Client {
 			public Server Server { get; }

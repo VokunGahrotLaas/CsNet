@@ -1,6 +1,4 @@
-using System;
-
-namespace testNet.Packet.PacketType {
+namespace CsNet.Packet.PacketType {
 	public abstract class PacketType<T>: APacket {
 		public PacketType() { }
 		public PacketType(T str) { Write(str); }

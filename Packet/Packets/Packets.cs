@@ -1,6 +1,6 @@
 using System;
 
-namespace testNet.Packet.Packets {
+namespace CsNet.Packet.Packets {
 	public abstract class APackets: APacket {
 		private readonly byte _size;
 		protected APackets(byte size) { _size = size; }
@@ -15,22 +15,9 @@ namespace testNet.Packet.Packets {
 			if (length != 0) throw new Exception($"{nameof(Add)}: packet was too big to add!");
 			packet.Read().CopyTo(packetMem);
 			Write(packetMem);
-			
-			/*Console.Write("Packets Added: '");
-			foreach (byte b in packetMem.Span)
-				Console.Write($"{b:X2}");
-			Console.Write("' | State: '");
-			foreach (byte b in _bytes.Span)
-				Console.Write($"{b:X2}");
-			Console.WriteLine("'");*/
 		}
 		
 		public virtual SubPacket Get<SubPacket>() where SubPacket: APacket, new() {
-			/*Console.Write("Packets Got: '");
-			foreach (byte b in _bytes.Span)
-				Console.Write($"{b:X2}");
-			Console.WriteLine("'");*/
-			
 			int length = 0;
 			foreach (byte b in Read(_size).Span) {
 				length <<= 8;

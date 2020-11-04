@@ -1,8 +1,6 @@
-using System;
-using System.Net;
 using System.Text;
 
-namespace testNet.Packet.PacketType {
+namespace CsNet.Packet.PacketType {
 	public class PacketString: PacketType<string> {
 		public override void Read(out string data) {
 			data = Encoding.UTF8.GetString(Read().Span);

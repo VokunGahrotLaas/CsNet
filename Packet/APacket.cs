@@ -3,7 +3,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
-namespace testNet.Packet {
+namespace CsNet.Packet {
 	public abstract class APacket {
 		protected Memory<byte> _bytes = Memory<byte>.Empty;
 		public int Length => _bytes.Length;

@@ -1,12 +1,11 @@
 using System;
-using System.Data.SqlTypes;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
-using testNet.Packet;
+using CsNet.Packet;
 
-namespace testNet {
+namespace CsNet {
 	public class Client: IDisposable {
 		private bool _disposed = false;
 		private readonly TcpClient _tcpClient;

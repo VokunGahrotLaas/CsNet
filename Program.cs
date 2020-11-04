@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Net.Sockets;
-using System.Threading.Tasks;
 
-using testNet.Packet.Packets;
-using testNet.Packet.PacketType;
+using CsNet.Packet.Packets;
+using CsNet.Packet.PacketType;
 
-namespace testNet {
+namespace CsNet {
 	public class MyClient: Client {
 		public MyClient(string address, int port): base(address, port) { }
 		protected override void OnStart() {
