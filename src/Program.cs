@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Threading;
+using System.Threading.Tasks;
 using CsNet.Packet.PacketType;
 
 namespace CsNet {
@@ -50,27 +50,24 @@ namespace CsNet {
 		}
 	}
 	
-	class Program {
-		static void Main() {
+	public class Program {
+		public static void Main() {
 			const int port = 42069;
-			MyServer server = new MyServer(port);
-			MyClient client1 = new MyClient("localhost", port);
-			MyClient client2 = new MyClient("localhost", port);
+			using MyServer server = new MyServer(port);
+			using MyClient client1 = new MyClient("localhost", port);
+			using MyClient client2 = new MyClient("localhost", port);
 			
 			server.Start();
 			client1.Start();
 			client2.Start();
-			
-			Thread.Sleep(100);
 
 			client1.Send(new PacketString("hey :)"));
 			client2.Send(new PacketString("wsh :)"));
 			
-			Thread.Sleep(100);
+			server.SendAll(new PacketString("Hi !"));
 			
 			client1.Close();
-			client2.Close();
-			server.Close();
+			server.SendAll(new PacketString("Hi again !"));
 		}
 	}
 }

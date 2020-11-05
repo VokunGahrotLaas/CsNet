@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -8,7 +9,7 @@ using CsNet.Packet;
 using ClientSet = System.Collections.Generic.HashSet<CsNet.Server.ServerClient>;
 
 namespace CsNet {
-	public class Server {
+	public class Server: IDisposable {
 		public class ServerClient: Client {
 			public Server Server { get; }
 			public ServerClient(Server server, TcpClient tcpClient) : base(tcpClient) { Server = server; }
