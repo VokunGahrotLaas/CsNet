@@ -1,29 +1,22 @@
 ﻿using System;
-
-using CsNet.Packet.Packets;
+using System.Threading;
 using CsNet.Packet.PacketType;
 
 namespace CsNet {
 	public class MyClient: Client {
 		public MyClient(string address, int port): base(address, port) { }
 		protected override void OnStart() {
-			Console.WriteLine($"Client: connected with {Address} on port {Port} !");
+			Console.WriteLine($"Client: connected with {Address} on port {Port}");
 		}
 
 		protected override void OnClose() {
-			Console.WriteLine($"Client: closed !");
+			Console.WriteLine("Client: closed");
 		}
 
 		protected override void OnReceive() {
-			Packets packet = Receive<Packets>();
-			
-			PacketString packetString2 = packet.Get<PacketString>();
-			packetString2.Read(out string message2);
-        		
-			PacketString packetString1= packet.Get<PacketString>();
-			packetString1.Read(out string message1);
-        		
-			Console.WriteLine($"Client: received '{message1}' & '{message2}'");
+			PacketString packet = Receive<PacketString>();
+			packet.Read(out string message);
+			Console.WriteLine($"Client: received '{message}'");
 		}
 	}
 	
@@ -31,56 +24,53 @@ namespace CsNet {
 		public MyServer(int port): base(port) { }
 
 		protected override void OnStart() {
-			Console.WriteLine($"Server: started on port {Port} !");
+			Console.WriteLine($"Server: started on port {Port}");
 		}
 
 		protected override void OnClose() {
-			Console.WriteLine($"Server: closed !");
+			Console.WriteLine("Server: closed");
 		}
 
-		protected override void OnAddClient(ServerClient client) {
-			Console.WriteLine($"Server: registered a connection from {client.Address} on port {client.Port}.");
+		protected override void OnAcceptClient(ServerClient client) {
+			Console.WriteLine($"Server: accepted a connection from {client.Address}:{client.Port}");
 		}
 
-		protected override void OnRemoveClient(ServerClient client) {
-			Console.WriteLine($"Server: {client.Address} got disconnected.");
+		protected override void OnRefuseClient(ServerClient client) {
+			Console.WriteLine($"Server: refused a connection from {client.Address}:{client.Port}");
+		}
+
+		protected override void OnDisconnectClient(ServerClient client) {
+			Console.WriteLine($"Server: {client.Address}:{client.Port} got disconnected");
 		}
 
 		protected override void OnReceive(ServerClient client) {
-			Packets packet = client.Receive<Packets>();
-			
-			PacketString packetString2 = packet.Get<PacketString>();
-			packetString2.Read(out string message2);
-        		
-			PacketString packetString1= packet.Get<PacketString>();
-			packetString1.Read(out string message1);
-        		
-			Console.WriteLine($"Server: received '{message1}' & '{message2}'");
+			PacketString packet = client.Receive<PacketString>();
+			packet.Read(out string message);
+			Console.WriteLine($"Server: {client.Address}:{client.Port} sent '{message}'");
 		}
 	}
 	
 	class Program {
-		static void Main(string[] args) {
+		static void Main() {
 			const int port = 42069;
 			MyServer server = new MyServer(port);
-			MyClient client = new MyClient("localhost", port);
+			MyClient client1 = new MyClient("localhost", port);
+			MyClient client2 = new MyClient("localhost", port);
 			
 			server.Start();
-			client.Start();
-
-			PacketString stringPacket1 = new PacketString();
-			stringPacket1.Write("machin");
-
-			PacketString stringPacket2 = new PacketString();
-			stringPacket2.Write("truc");
+			client1.Start();
+			client2.Start();
 			
-			Packets packet = new Packets();
-			packet.Add(stringPacket1);
-			packet.Add(stringPacket2);
-			client.Send(packet);
+			Thread.Sleep(100);
 
+			client1.Send(new PacketString("hey :)"));
+			client2.Send(new PacketString("wsh :)"));
+			
+			Thread.Sleep(100);
+			
+			client1.Close();
+			client2.Close();
 			server.Close();
-			client.Close();
 		}
 	}
 }

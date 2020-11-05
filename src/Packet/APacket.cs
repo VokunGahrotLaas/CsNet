@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace CsNet.Packet {
 	public abstract class APacket {
-		protected Memory<byte> _bytes = Memory<byte>.Empty;
+		private Memory<byte> _bytes = Memory<byte>.Empty;
 		public int Length => _bytes.Length;
 
 		public void Write(Memory<byte> bytes) {

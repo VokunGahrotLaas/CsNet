@@ -17,28 +17,25 @@ namespace CsNet.Packet.Packets {
 			Write(packetMem);
 		}
 		
-		public virtual SubPacket Get<SubPacket>() where SubPacket: APacket, new() {
+		public virtual TPacket Get<TPacket>() where TPacket: APacket, new() {
 			int length = 0;
 			foreach (byte b in Read(_size).Span) {
 				length <<= 8;
-				length |= (int)b;
+				length |= b;
 			}
-			SubPacket packet = new SubPacket();
+			TPacket packet = new TPacket();
 			packet.Write(Read(length));
 			return packet;
 		}
 	}
 	
 	public class ShortPackets: APackets {
-		protected byte _size;
 		public ShortPackets(): base(2) {  }
 	}
 	public class Packets: APackets {
-		protected byte _size;
 		public Packets(): base(4) {  }
 	}
 	public class LongPackets: APackets {
-		protected byte _size;
 		public LongPackets(): base(8) {  }
 	}
 }

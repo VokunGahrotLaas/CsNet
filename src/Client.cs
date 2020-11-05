@@ -7,15 +7,14 @@ using CsNet.Packet;
 
 namespace CsNet {
 	public class Client: IDisposable {
-		private bool _disposed = false;
+		private bool _disposed;
 		private readonly TcpClient _tcpClient;
-		private Task _run_task;
-		private Task _verify_task;
+		private Task _runTask;
 
 		public string Address { get; }
 		public int Port { get; }
 		public NetworkStream Stream { get; }
-		public bool IsOpen { get; private set; } = false;
+		public bool IsOpen { get; private set; }
 		public bool IsDataAvailable => Stream.DataAvailable;
 		public int DataAvailable => _tcpClient.Available;
 		public bool Connected => _tcpClient.Connected;
@@ -46,8 +45,7 @@ namespace CsNet {
 			if (IsOpen)
 				Close();
 			if (disposing) {
-				_run_task.Dispose();
-				_verify_task.Dispose();
+				_runTask.Dispose();
 				_tcpClient.Dispose();
 				Stream.Dispose();
 			}
@@ -58,27 +56,26 @@ namespace CsNet {
 			if (IsOpen) return;
 			IsOpen = true;
 			OnStart();
-			_run_task = Run();
-			_verify_task = Verify();
+			_runTask = Run();
 		}
 
 		public void Close() {
 			if (!IsOpen) return;
 			IsOpen = false;
-			_run_task.Wait();
-			_verify_task.Wait();
+			_runTask.Wait();
 			OnClose();
 			_tcpClient.Close();
 		}
 
-		private async Task Verify() {
-			while (IsOpen) {
-				if (!Connected)
-					Disconnect();
-				else if (IsDataAvailable)
-					OnReceive();
-				await Task.Delay(1);
-			}
+		protected void DispatchEvents() {
+			Verify();
+		}
+
+		private void Verify() {
+			if (!Connected)
+				Disconnect();
+			else if (IsDataAvailable)
+				OnReceive();
 		}
 
 		private void Disconnect() {
@@ -98,8 +95,8 @@ namespace CsNet {
 			packet.Receive(Stream);
 		}
 
-		public SubPacket Receive<SubPacket>() where SubPacket: APacket, new() {
-			SubPacket packet = new SubPacket();
+		public TPacket Receive<TPacket>() where TPacket: APacket, new() {
+			TPacket packet = new TPacket();
 			Receive(packet);
 			return packet;
 		}
@@ -108,14 +105,20 @@ namespace CsNet {
 			await packet.ReceiveAsync(Stream);
 		}
 
-		public async Task<SubPacket> ReceiveAsync<SubPacket>() where SubPacket: APacket, new() {
-			SubPacket packet = new SubPacket();
+		public async Task<TPacket> ReceiveAsync<TPacket>() where TPacket: APacket, new() {
+			TPacket packet = new TPacket();
 			await ReceiveAsync(packet);
 			return packet;
 		}
 
+		protected virtual async Task Run() {
+			while (IsOpen) {
+				DispatchEvents();
+				await Task.Yield();
+			}
+		}
+
 		protected virtual void OnStart() { }
-		protected virtual async Task Run() { }
 		protected virtual void OnClose() { }
 		protected virtual void OnDisconnect() { }
 		protected virtual void OnReceive() { }
